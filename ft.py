@@ -97,28 +97,6 @@ def parameters_to_fine_tune(model: nn.Module, mode: str) -> List:
 
 
 def get_loss(logits: torch.tensor, targets: torch.tensor) -> torch.tensor:
-    """
-    Computes the cross-entropy loss for either sequence classification or generation.
-
-    For generation, you'll need to deal with the fact that different sequences witihn
-      the batch are different lengths, and the targets tensor includes some mask
-      values (-100). The average loss is the *average loss over all non-masked timesteps*.
-      You'll also need to handle the fact that the prediction for what token t will be is
-      made after seeing only t - 1 tokens; that is, there is an off-by-one shift needed
-      between the logits and targets.
-
-    Args:
-      logits: a 2D [batch_size, n_classes] (for classification) or 3D
-        [batch_size, sequence_length, vocab_size] (for generation) tensor
-        of *UNNORMALIZED* logits
-      targets: a 1D [batch_size] (for classification) or 2D [batch_size, sequence_length]
-        (for generation) tensor of target indices. For the generation case, may contain
-        -100 in some positions, meaning that the loss for this timestep should be ignored.
-    
-    Returns:
-      A zero-dim tensor representing the average cross-entropy loss over all batch 
-        elements (and sequence timesteps, if applicable)
-    """
     loss = nn.CrossEntropyLoss()
     if logits.dim() == 2:
         output = loss(logits, targets)
@@ -134,28 +112,6 @@ def get_loss(logits: torch.tensor, targets: torch.tensor) -> torch.tensor:
 
 
 def get_acc(logits, targets):
-    """
-    Computes the exact match accuracy for either sequence classification or generation. i.e.,
-      the fraction of predictions for which the most likely class/token equals the target.
-
-    For generation, you'll need to deal with the fact that different sequences witihn
-      the batch are different lengths, and the targets tensor includes some mask
-      values (-100). The average accuracy is the *average accuracy over all non-masked timesteps*.
-      You'll also need to handle the fact that the prediction for what token t will be is
-      made after seeing only t - 1 tokens; that is, there is an off-by-one shift needed
-      between the logits and targets.
-
-    Args:
-      logits: a 2D [batch_size, n_classes] (for classification) or 3D
-        [batch_size, sequence_length, vocab_size] (for generation) tensor of logits
-      targets: a 1D [batch_size] (for classification) or 2D [batch_size, sequence_length]
-        (for generation) tensor of target indices. For the generation case, may contain
-        -100 in some positions, meaning that the loss for this timestep should be ignored.
-    
-    Returns:
-      A *scalar* representing the average exact-match accuracy over all non-masked batch 
-        elements (and sequence timesteps, if applicable)
-    """
     m = nn.LogSoftmax(dim=1)
     if logits.dim() == 2:
         return torch.mean((torch.argmax(logits, dim=1) == targets).float())
@@ -205,29 +161,6 @@ def ft_bert(model, tok, x, y, mode, batch_size=8):
 
 
 def tokenize_gpt2_batch(tokenizer, x, y):
-    """
-    Args:
-        tokenizer: a GPT2Tokenizer that you can call and receive a dictionary of:
-          - input_ids: a list (or tensor) of token ids
-          - attention_mask: a list (or tensor) of 1s and 0s indicating which tokens
-              are padding (if you requested padding and tensors from the tokenizer)
-        x: a list of strings, each of which is the input for a single example
-        y: a list of strings, each of which is a *target* for a single example
-    
-    Returns:
-        A dictionary with the following keys:
-            - input_ids: a tensor of shape [batch_size, sequence_length] 
-                containing the token ids
-            - attention_mask: a tensor of shape [batch_size, sequence_length] 
-                containing 1s and 0s indicating which tokens are padding
-            - labels: a tensor of shape [batch_size, sequence_length] containing
-                the target token ids, with -100 for non-target tokens (i.e., the
-                tokens in the input part of each example or padding tokens)
-        where sequence_length is determined by the (x, y) pair whose tokenized
-        length is the longest in the batch. The other sequences should be padded to
-        this length (you can get the tokenizer to handle this padding!).
-
-    """
     tokenized_sequences = None
     tokenized_sequences = tokenizer([x_ + y_ for x_, y_ in zip(x, y)], return_tensors='pt', padding=True).to(DEVICE)
     
